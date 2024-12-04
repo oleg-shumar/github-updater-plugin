@@ -2,7 +2,7 @@
 /*
  * Plugin name: Misha Update Checker
  * Description: This simple plugin does nothing, only gets updates from a custom server
- * Version: 1.2.2
+ * Version: 1.1.1
  * Author: oleg-shumar
  * Author URI: https://rudrastyh.com
  * License: GPL
@@ -40,7 +40,7 @@ if (!class_exists('GitHubPluginUpdater')) {
       $this->plugin_file = str_replace(WP_PLUGIN_DIR . '/', '', $base_file);
       $this->plugin_slug = explode('/', plugin_basename($base_file))[0];
       $this->latest_release_cache_key = $this->plugin_slug . '_release';
-      $this->cache_allowed = true;
+      $this->cache_allowed = !true; // TODO: change
       $this->get_plugin_data();
 
       add_filter('plugins_api', [$this, 'get_plugin_info'], 20, 3);
@@ -126,17 +126,17 @@ if (!class_exists('GitHubPluginUpdater')) {
       }
 
       $github_api_url = 'https://api.github.com/repos/' . $this->plugin_data['AuthorName'] . '/' . $this->plugin_slug . '/releases/latest';
-	    var_dump($github_api_url);die;
+
       // Make the API request to GitHub
       $response = wp_remote_get($github_api_url);
       if (is_wp_error($response)) {
         return false;
       }
+	    $this->latest_release = json_decode(wp_remote_retrieve_body($response), true);
+	    $this->latest_release["version"] = preg_replace('/[^0-9.]/', '', $this->latest_release["tag_name"]);
 
-      $this->latest_release = json_decode(wp_remote_retrieve_body($response), true);
-      $this->latest_release["version"] = preg_replace('/[^0-9.]/', '', $this->latest_release["tag_name"]);
 
-      if ($this->cache_allowed) {
+	    if ($this->cache_allowed) {
         set_transient($this->latest_release_cache_key, $this->latest_release, 5 * MINUTE_IN_SECONDS);
       }
 
@@ -160,6 +160,7 @@ if (!class_exists('GitHubPluginUpdater')) {
         $res->slug = $this->plugin_slug;
         $res->plugin = $this->plugin_file; // misha-update-plugin/misha-update-plugin.php
         $res->new_version = $this->latest_release["version"];
+	    $res->newVersion = $this->latest_release["version"];
         $res->tested = $this->plugin_data["TestedUpTo"] ?? null;
 
         $res->package = $this->latest_release["zipball_url"];
@@ -190,6 +191,10 @@ if (!class_exists('GitHubPluginUpdater')) {
       $wp_filesystem->move($result['destination'], $proper_destination);
       $result['destination'] = $proper_destination;
       $result['destination_name'] = $this->plugin_slug;
+      $result['destination_name'] = $proper_destination;
+      $result['remote_destination'] = $proper_destination;
+      $result['Version'] = $this->latest_release['version'];
+
       return $response;
     }
   }

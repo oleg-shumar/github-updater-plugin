@@ -2,7 +2,7 @@
 /*
  * Plugin name: Misha Update Checker
  * Description: This simple plugin does nothing, only gets updates from a custom server
- * Version: 1.1.1
+ * Version: 1.2.3
  * Author: oleg-shumar
  * Author URI: https://rudrastyh.com
  * License: GPL

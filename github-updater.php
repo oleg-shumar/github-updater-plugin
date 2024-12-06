@@ -2,7 +2,7 @@
 /*
  * Plugin name: Misha Update Checker
  * Description: This simple plugin does nothing, only gets updates from a custom server
- * Version: 1.2.5
+ * Version: 1.2.6
  * Author: oleg-shumar
  * Author URI: https://rudrastyh.com
  * License: GPL
@@ -21,6 +21,7 @@ defined('ABSPATH') || exit;
 if (!class_exists('GitHubPluginUpdater')) {
 
 	class GitHubPluginUpdater {
+		const PLUGIN_DIR_NAME = 'github-updater-plugin';
 		private $plugin_slug;
 		private $latest_release_cache_key;
 		private $cache_allowed;
@@ -51,6 +52,30 @@ if (!class_exists('GitHubPluginUpdater')) {
 			add_action('admin_post_' . $this->plugin_slug . '_clear_cache', [$this, 'clear_latest_release_cache']);
 			add_action('admin_notices', [$this, 'display_cache_cleared_message']);
 			add_filter('plugin_action_links_' . $this->plugin_file, [$this, 'add_clear_cache_link']);
+
+			// Schedule the rename function to be executed
+			if ( ! wp_next_scheduled( 'check_and_rename_plugin_dir' ) ) {
+				wp_schedule_single_event( time(), 'check_and_rename_plugin_dir' );
+			}
+			add_action( 'check_and_rename_plugin_dir', [ $this, 'rename_plugin_dir' ] );
+		}
+
+		public function rename_plugin_dir() {
+			$currentPath = plugin_dir_path( __FILE__ );
+			$currentDirName = basename( rtrim( $currentPath, '/' ) );
+			$correctDirName = self::PLUGIN_DIR_NAME;
+
+			if( $currentDirName != $correctDirName ) {
+				$parentDir = dirname( $currentPath );
+				$newDirPath = $parentDir . DIRECTORY_SEPARATOR . $correctDirName;
+
+				if( rename( $currentPath, $newDirPath ) ) {
+					deactivate_plugins( plugin_basename( __FILE__ ) );
+					error_log( "The plugin directory has been renamed. Reactivate is required." );
+				} else {
+					error_log( "An error occurred while renaming the plugin directory." );
+				}
+			}
 		}
 
 		public function add_clear_cache_link($links) {
@@ -126,7 +151,7 @@ if (!class_exists('GitHubPluginUpdater')) {
 			}
 
 			$github_api_url = 'https://api.github.com/repos/' . $this->plugin_data['AuthorName'] . '/' . $this->plugin_slug . '/releases/latest';
-			var_dump($github_api_url);die;
+
 			// Make the API request to GitHub
 			$response = wp_remote_get($github_api_url);
 			if (is_wp_error($response)) {
@@ -182,12 +207,17 @@ if (!class_exists('GitHubPluginUpdater')) {
 			if ($this->cache_allowed) {
 				delete_transient($this->latest_release_cache_key);
 			}
+			die(''.__LINE__);
 		}
 
 		public function fix_folder($response, $hook_extra, $result) {
 			global $wp_filesystem;
 			$proper_destination = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
-			$wp_filesystem->copy($result['destination'], $proper_destination);
+			if( !is_dir($result['local_destination'].'/'.'github-updater-plugin') ){
+				mkdir($result['local_destination'].'/'.'github-updater-plugin');
+			}
+			$wp_filesystem->copy($result['remote_destination'], $result['local_destination'].'/'.'github-updater-plugin', true);
+//			var_dump($result['remote_destination'], $result['local_destination'].'/'.'github-updater-plugin'); die;
 			$result['destination'] = $proper_destination;
 			$result['destination_name'] = $this->plugin_slug;
 			return $response;

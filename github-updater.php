@@ -2,7 +2,7 @@
 /*
  * Plugin name: Misha Update Checker
  * Description: This simple plugin does nothing, only gets updates from a custom server
- * Version: 1.2.9
+ * Version: 1.2.3
  * Author: oleg-shumar
  * Author URI: https://rudrastyh.com
  * License: GPL
@@ -193,6 +193,9 @@ if (!class_exists('GitHubPluginUpdater')) {
 			if ( file_exists( $tmp_name ) ) {
 				unlink( $tmp_name );
 			}
+
+			$uploads_dir = wp_upload_dir(); // TODO: 'temp_folder' could be moved to another constant as we use it twice in code
+			$this->delete_directory( $uploads_dir['basedir'] . '/temp_folder' );
 		}
 
 		/**
@@ -218,6 +221,9 @@ if (!class_exists('GitHubPluginUpdater')) {
 			WP_Filesystem();
 			$uploads_dir = wp_upload_dir();
 			$destination = $uploads_dir['basedir'] . '/temp_folder';
+			if( !is_dir( $destination ) ) {
+				mkdir( $destination );
+			}
 
 			$unzipfile = unzip_file( $tmp_file, $destination );
 
@@ -264,6 +270,33 @@ if (!class_exists('GitHubPluginUpdater')) {
 			$uploads_dir = wp_upload_dir();
 
 			return $uploads_dir['basedir'] . '/' . GitHubPluginUpdater::PLUGIN_DIR_NAME . ".zip";
+		}
+
+		/**
+		 * Clean-up. Deletes a directory and its contents recursively.
+		 *
+		 * @param string $dir The directory path to be deleted.
+		 *
+		 * @return bool True if the directory and its contents are successfully deleted, false otherwise.
+		 */
+		private function delete_directory( $dir ) {
+			if ( ! file_exists( $dir ) ) {
+				return true;
+			}
+			if ( ! is_dir( $dir ) ) {
+				return unlink( $dir );
+			}
+
+			foreach ( scandir( $dir ) as $item ) {
+				if ( $item == '.' || $item == '..' ) {
+					continue;
+				}
+				if ( ! $this->delete_directory( $dir . DIRECTORY_SEPARATOR . $item ) ) {
+					return false;
+				}
+			}
+
+			return rmdir( $dir );
 		}
 	}
 
